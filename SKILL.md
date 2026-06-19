@@ -63,15 +63,15 @@ When user says **"嘉立创EDA，启动！"**, **"立创EDA，启动！"**, or *
 
 Then proceed with the setup steps below.
 
-### 2. Install dependencies (if needed)
+### 2. Start bridge server
+
+> **IMPORTANT**: Do not install dependencies or run the bridge from the skill source directory. Use the fixed launcher below. The launcher runs from `/Users/yodo/work/easyeda-api-runtime`, not from `/Users/yodo/agent-skills/external/easyeda-api-skill`.
 
 ```bash
-cd ${CLAUDE_SKILL_DIR} && npm install
+/Users/yodo/bin/easyeda-bridge
 ```
 
-### 3. Start bridge server
-
-> **⚠️ IMPORTANT**: The bridge server must run in the background. Do NOT run it in the foreground, or the AI will block waiting for the server to exit.
+For AI agents, the bridge server must run in the background. Do not run it in the foreground unless the user explicitly asks for an interactive server process.
 
 ```bash
 # Check if bridge is already running
@@ -86,7 +86,7 @@ done
 
 # Start bridge if not running
 if [ -z "$BRIDGE_PORT" ]; then
-  node ${CLAUDE_SKILL_DIR}/scripts/bridge-server.mjs &
+  /Users/yodo/bin/easyeda-bridge &
   sleep 2
   # Find the port bridge is running on
   for port in $(seq 49620 49629); do
@@ -101,7 +101,9 @@ fi
 echo "Bridge running on port: ${BRIDGE_PORT:-unknown}"
 ```
 
-### 4. Connect EasyEDA
+If `/Users/yodo/bin/easyeda-bridge` reports a missing runtime directory, recreate `/Users/yodo/work/easyeda-api-runtime` from this skill's `package.json`, `package-lock.json`, and `scripts/bridge-server.mjs`, then install dependencies there. Never run `npm install` in the skill source directory.
+
+### 3. Connect EasyEDA
 
 Install the `run-api-gateway.eext` extension in EasyEDA Pro. Download link:
 
@@ -109,7 +111,7 @@ Install the `run-api-gateway.eext` extension in EasyEDA Pro. Download link:
 
 After the extension is loaded, it will automatically establish the WebSocket connection.
 
-### 5. Verify connection and select EDA window
+### 4. Verify connection and select EDA window
 
 ```bash
 # Check bridge and EDA connection status
@@ -152,7 +154,7 @@ curl -X POST http://localhost:${BRIDGE_PORT}/eda-windows/select \
 
 After selection, confirm: "✅ Active EDA window: abc-123. Ready to work."
 
-### 6. Execute code on EDA
+### 5. Execute code on EDA
 
 ```bash
 curl -X POST http://localhost:${BRIDGE_PORT:-49620}/execute \
