@@ -226,6 +226,45 @@ async function(eda) {
 - Use `eda.sys_Message.showToastMessage(msg)` for user-visible notifications.
 - When reviewing API documentation and encountering enumerations, do not guess the enumeration values. You must use the enumeration members, for example: `EPCB_LayerId.TOP` instead of `1` for the layer parameter in PCB primitive creation.
 
+### Schematic Coordinate Rules
+
+For EasyEDA schematic API work, use the raw API coordinate system as the source of truth. The current verified schematic coordinate behavior is:
+
+- `x` increases to the visual right.
+- `y` increases to the visual top.
+- `y` decreases to the visual bottom.
+- Raw EasyEDA schematic API coordinates match the user's visual understanding of the schematic canvas.
+
+Do not apply web, Canvas, screenshot-pixel, or common screen-coordinate assumptions where `y` increases downward. Do not flip `y`, use `pageHeight - y`, or infer that a larger `topLeftY + height` means "lower" on the schematic.
+
+When selecting schematic rectangles or regions by visual position, normalize first:
+
+```text
+minX = min(x, x + width)
+maxX = max(x, x + width)
+minY = min(y, y + height)
+maxY = max(y, y + height)
+visualTopY = maxY
+visualBottomY = minY
+center = ((minX + maxX) / 2, (minY + maxY) / 2)
+```
+
+Use these selection rules:
+
+- Visual bottommost rectangle/region: choose the smallest `visualBottomY`.
+- Visual topmost rectangle/region: choose the largest `visualTopY`.
+- Visual leftmost rectangle/region: choose the smallest `minX`.
+- Visual rightmost rectangle/region: choose the largest `maxX`.
+
+After placing or moving schematic objects by a visual-region request, read the object back through the API and verify:
+
+```text
+minX <= object.x <= maxX
+minY <= object.y <= maxY
+```
+
+If readback does not satisfy the target region or relative direction, stop and report `COORDINATE_PLACEMENT_MISMATCH` instead of continuing with additional schematic edits.
+
 ### Extension Runtime Constraints
 
 When writing EasyEDA extensions, standard browser APIs are **forbidden** in the main process. Use EDA-provided alternatives:
