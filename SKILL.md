@@ -507,6 +507,96 @@ await eda.sch_PrimitiveComponent.create(
 const ids = eda.sch_SelectControl.getAllSelectedPrimitives_PrimitiveId();
 ```
 
+### Schematic Net Label vs Net Flag Diagnostics
+
+When diagnosing schematic DRC warnings such as:
+
+```text
+wire $xxx has multiple net names: GND, GND
+```
+
+do not rely on visual text alone. Distinguish these objects first:
+
+| Object | Reliable indicator | Meaning |
+|--------|--------------------|---------|
+| Net label | Selected object may read as `componentType: "netlabel"`; in document source it is usually an `ATTR` on a `WIRE` with `key: "NET"` and `value: "<net>"` | A label that names a wire |
+| Net flag / ground symbol | `sch_PrimitiveComponent.getAll("netflag", true)` returns a component with `componentType: "netflag"` and `net: "GND"` | A schematic symbol that also assigns a net |
+
+Before bulk searching, verify the active document/page. `sys_FileManager.getDocumentSource()` reads the currently active document, so switching between main-board and sub-board schematic tabs changes the result.
+
+Use this read-only pattern to find `GND` net labels placed on wires that are already connected to a `GND` net flag:
+
+```javascript
+const src = await eda.sys_FileManager.getDocumentSource();
+const rows = String(src || "").split("|\\n").filter(Boolean);
+const byId = {};
+const records = [];
+
+for (const row of rows) {
+  const parts = row.split("||");
+  if (parts.length < 2) continue;
+  try {
+    const head = JSON.parse(parts[0]);
+    const body = JSON.parse(parts.slice(1).join("||"));
+    byId[head.id] = { head, body };
+    records.push({ head, body });
+  } catch (_) {}
+}
+
+const gndWireLabels = records
+  .filter(r =>
+    r.head.type === "ATTR" &&
+    r.body.key === "NET" &&
+    String(r.body.value).toUpperCase() === "GND" &&
+    byId[r.body.parentId]?.head?.type === "WIRE"
+  )
+  .map(r => ({
+    attrId: r.head.id,
+    x: r.body.x,
+    y: r.body.y,
+    wireId: r.body.parentId
+  }));
+
+const flags = await eda.sch_PrimitiveComponent.getAll("netflag", true);
+const gndFlags = (flags || [])
+  .filter(f => String(f.net || "").toUpperCase() === "GND")
+  .map(f => ({ id: f.primitiveId, x: f.x, y: f.y, net: f.net }));
+
+const result = [];
+for (const label of gndWireLabels) {
+  const wireList = await eda.sch_PrimitiveWire.get([label.wireId]);
+  const wire = Array.isArray(wireList) ? wireList[0] : wireList;
+  const line = wire?.line || [];
+  const endpoints = [
+    { x: line[0], y: line[1] },
+    { x: line[2], y: line[3] }
+  ];
+  const nearbyFlags = gndFlags.filter(flag =>
+    endpoints.some(p =>
+      Math.abs(flag.x - p.x) <= 5 &&
+      Math.abs(flag.y - p.y) <= 5
+    ) ||
+    Math.abs(flag.x - label.x) <= 5 &&
+    Math.abs(flag.y - label.y) <= 5
+  );
+
+  result.push({
+    label,
+    wireLine: line,
+    connectedToGndNetflag: nearbyFlags.length > 0,
+    nearbyGndNetflags: nearbyFlags
+  });
+}
+
+return result;
+```
+
+Interpretation:
+
+- `connectedToGndNetflag: true` means the wire has both a `GND` wire net label and a nearby/endpoint `GND` net flag; this is a likely duplicate. Keep the net flag and remove or move the redundant net label only after reporting the exact `attrId`, `wireId`, and coordinates.
+- A zero-length `wireLine` at the same coordinate as a `GND` net flag is especially suspicious for an accidental duplicate label.
+- If the user asks for a read-only review, never delete labels automatically; list candidates first and wait for confirmation.
+
 ### Library Operations
 
 ```javascript
