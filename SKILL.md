@@ -265,6 +265,26 @@ minY <= object.y <= maxY
 
 If readback does not satisfy the target region or relative direction, stop and report `COORDINATE_PLACEMENT_MISMATCH` instead of continuing with additional schematic edits.
 
+### Multi-Board Document and Unit Confirmation Gate
+
+Before creating, moving, deleting, or wiring any schematic or PCB object in EasyEDA, the agent MUST pass this gate whenever the project contains multiple boards, schematic pages, PCBs, panels, or any similarly ambiguous document context.
+
+1. Identify the intended target by board name, document name, document type, and UUID.
+2. Explicitly activate that target document with `eda.dmt_EditorControl.openDocument(targetUuid)`.
+3. Read back the active document with `eda.dmt_SelectControl.getCurrentDocumentInfo()` and verify the UUID matches the target.
+4. State the coordinate unit before acting:
+   - Schematic API coordinates use `0.01 inch` units.
+   - PCB API coordinates use `1 mil` units.
+   - A schematic UI coordinate in inches must be multiplied by `100` before using it as an API coordinate.
+   - Example: user says schematic `Y=-15 inch` -> API `y=-1500`; user says schematic `Y=-0.4 inch` -> API `y=-40`.
+5. Restate every user-provided placement as both the user-facing coordinate and the API coordinate before executing.
+6. If the user gives a coordinate without a unit, STOP and ask for the unit. Do not assume API units, inches, mm, mil, or grid units.
+7. If the user specifies a direction such as "toward -Y", compute the actual object origin needed to make the requested pin/anchor start at the requested coordinate, then read back the pin/anchor coordinate after placement.
+
+Never treat a bare value such as `Y=-15` as an API coordinate unless the user explicitly says it is an API coordinate. In schematic UI language, values shown in inches are not API units.
+
+If any item in this gate fails, do not modify the design. Stop and report `DOCUMENT_OR_UNIT_NOT_CONFIRMED`.
+
 ### Extension Runtime Constraints
 
 When writing EasyEDA extensions, standard browser APIs are **forbidden** in the main process. Use EDA-provided alternatives:
