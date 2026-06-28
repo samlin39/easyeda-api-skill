@@ -179,6 +179,13 @@ const r = await eda.lib_Device.search("C2733614");
 7. **写回**：`await eda.sys_FileManager.setDocumentSource(newSrc);`
 8. **重载**：`openDocument(pcbUuid)` 重新打开，让画布刷新。
 9. **验证**：见下。
+10. **保存**（关键，容易忘）：
+
+    > `setDocumentSource` 只是把改动写入**画布内存**，并不等于保存到工程。tab 标签旁仍会显示未保存标记 `*`。必须额外调用 `save()` 才算真正入库。
+
+    ```javascript
+    await eda.pcb_Document.save(pcbUuid);  // 返回 true 才算保存成功
+    ```
 
 > 改源码必须保留 `||...|` 双竖线 + 末尾竖线的包裹结构，且外层 JSON 的 `type/id/ticket` 三键不能丢。
 > `setDocumentSource` 是整文档覆盖，任何手抖都会损坏文件 —— **必须先备份**。

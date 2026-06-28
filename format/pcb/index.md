@@ -21,3 +21,4 @@
 源码层操作配方（当官方 API 不支持时的 workaround）：
 
 - [单独覆盖某个器件的 3D 模型](./recipe-component-3d-model-override.md)：只改单个器件 3D 模型，不动 footprint/网络/位号。
+- [机械孔边缘加镀锡层](./recipe-mechanical-hole-tinning.md)：扩大 NPTH 铜环 + 阻焊开窗，与 GND 隔断。
