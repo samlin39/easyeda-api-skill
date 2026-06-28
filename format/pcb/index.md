@@ -15,3 +15,9 @@
 - [封装体系](/cn/format/pcb/component.md)：元件实例。
 - [设计规则](/cn/format/pcb/rule.md)：规则模板、规则定义、规则选择器。
 - [拼版](/cn/format/pcb/panel.md)：拼版参数。
+
+## 操作配方 (Recipes)
+
+源码层操作配方（当官方 API 不支持时的 workaround）：
+
+- [单独覆盖某个器件的 3D 模型](./recipe-component-3d-model-override.md)：只改单个器件 3D 模型，不动 footprint/网络/位号。
